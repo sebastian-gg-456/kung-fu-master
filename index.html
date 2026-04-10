@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kung Fu Master - Phaser 3</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: black;
+            overflow: hidden;
+        }
+        body {
+            margin: 2px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+        #ui-bar {
+            width: calc(100vw - 4px);
+            max-width: 1920px;
+            min-height: 140px;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            border-bottom: 2px solid #fff;
+        }
+        #ui-bar .ui-group {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+        #ui-bar .ui-group span {
+            color: #00ff00;
+            font-size: 28px;
+        }
+        #ui-bar-bottom {
+            width: calc(100vw - 4px);
+            max-width: 1920px;
+            min-height: 60px;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            border-top: 2px solid #fff;
+        }
+        #ui-bar-bottom .ui-group {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+        #ui-bar-bottom .ui-group span {
+            color: #00ff00;
+            font-size: 28px;
+        }
+        #game-container {
+            width: calc(100vw - 4px);
+            height: 550px;
+            max-width: 1920px;
+            box-sizing: border-box;
+        }
+        #game-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-bar">
+        <div class="ui-group">
+            <div>Vidas: <span id="lives-value">3</span></div>
+            <div>Puntuación: <span id="score-value">0</span></div>
+        </div>
+        <div class="ui-group">
+            <div>Nivel: <span id="level-value">1</span></div>
+        </div>
+    </div>
+    <div id="game-container"></div>
+    <div id="ui-bar-bottom">
+        <div class="ui-group">
+            <div>Estado: <span id="status-value">JUGANDO</span></div>
+            <div>Enemigos: <span id="enemies-value">0</span></div>
+        </div>
+        <div class="ui-group">
+            <div>Tiempo: <span id="time-value">00:00</span></div>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>

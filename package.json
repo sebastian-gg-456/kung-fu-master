@@ -1,0 +1,11 @@
+{
+  "name": "kung-fu-master",
+  "version": "1.0.0",
+  "description": "Recreación de Kung Fu Master con Phaser 3",
+  "scripts": {
+    "dev": "live-server --port=3000"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
