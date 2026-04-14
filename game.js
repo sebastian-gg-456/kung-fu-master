@@ -5,9 +5,11 @@ class BootScene extends Phaser.Scene {
 
     preload() {
         // Load assets here if needed
-        this.load.image('background', 'sprites/mapa/background.png'); // Assuming sprite exists
+        // this.load.image('background', 'sprites/mapa/background.png'); // Assuming sprite exists
         this.load.spritesheet('player', 'sprites/jugador/caminar.png', { frameWidth: 64, frameHeight: 64 });
-        this.load.image('enemy', 'sprites/enemigos/enemy.png');
+        this.load.image('jump', 'sprites/jugador/salto.png');
+        this.load.spritesheet('punch', 'sprites/jugador/golpe.png', { frameWidth: 64, frameHeight: 64 });
+        // this.load.image('enemy', 'sprites/enemigos/enemy.png');
     }
 
     create() {
@@ -44,15 +46,20 @@ class GameScene extends Phaser.Scene {
         // If background image exists: this.add.image(400, 300, 'background');
 
         // Ground
-        this.ground = this.add.rectangle(400, 550, 800, 100, 0x8B4513);
-        this.physics.add.existing(this.ground, true); // Static
+        this.ground = this.add.rectangle(400, 500, 800, 100, 0x8B4513);
+        this.physics.add.existing(this.ground, true); // Static physics body
+        this.ground.body.setSize(800, 100);
+        this.ground.body.setOffset(-400, -50); // Center the physics body correctly
 
         // Player
-        this.player = this.physics.add.sprite(100, 500, 'player'); // Use spritesheet
+        this.player = this.physics.add.sprite(100, 418, 'player'); // Positioned above ground
         this.player.setDisplaySize(64, 64);
+        this.player.body.setSize(64, 64);
         this.player.setCollideWorldBounds(true);
         this.player.body.setGravityY(300);
+        this.player.setBounce(0.2);
         this.physics.add.collider(this.player, this.ground);
+        this.isJumping = false;
 
         // Player animations
         this.anims.create({
@@ -67,6 +74,30 @@ class GameScene extends Phaser.Scene {
             frameRate: 3, // Slower animation: ~300ms per frame
             repeat: -1
         });
+        this.anims.create({
+            key: 'jump',
+            frames: [{ key: 'jump', frame: 0 }],
+            frameRate: 1,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'punch1',
+            frames: this.anims.generateFrameNumbers('punch', { start: 0, end: 1 }),
+            frameRate: 10,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'punch2',
+            frames: this.anims.generateFrameNumbers('punch', { start: 2, end: 2 }),
+            frameRate: 10,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'punchCombo',
+            frames: this.anims.generateFrameNumbers('punch', { start: 1, end: 2 }),
+            frameRate: 10,
+            repeat: -1
+        });
         this.player.anims.play('idle');
 
         // Player animations (if spritesheet)
@@ -77,7 +108,18 @@ class GameScene extends Phaser.Scene {
 
         // Controls
         this.cursors = this.input.keyboard.createCursorKeys();
-        this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+        this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+        this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+        this.punchKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.punchKey2 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+
+        // Attack state
+        this.isAttacking = false;
+        this.comboCount = 0;
+        this.lastAttackTime = 0;
+        this.comboTimeout = 500; // ms
 
         // Score
         this.score = 0;
@@ -99,11 +141,11 @@ class GameScene extends Phaser.Scene {
     update() {
         // Player movement
         let moving = false;
-        if (this.cursors.left.isDown) {
+        if (this.cursors.left.isDown || this.aKey.isDown) {
             this.player.setVelocityX(-100); // Slower speed
             this.player.setFlipX(false); // No flip for left (assuming sprite faces left by default)
             moving = true;
-        } else if (this.cursors.right.isDown) {
+        } else if (this.cursors.right.isDown || this.dKey.isDown) {
             this.player.setVelocityX(100); // Slower speed
             this.player.setFlipX(true); // Flip for right
             moving = true;
@@ -111,21 +153,60 @@ class GameScene extends Phaser.Scene {
             this.player.setVelocityX(0);
         }
 
-        if (this.cursors.up.isDown && this.player.body.touching.down) {
-            this.player.setVelocityY(-330);
+        // Attack
+        const attackPressed = Phaser.Input.Keyboard.JustDown(this.punchKey) || Phaser.Input.Keyboard.JustDown(this.punchKey2);
+        const currentTime = this.time.now;
+        
+        if (attackPressed) {
+            if (!this.isAttacking && (currentTime - this.lastAttackTime > this.comboTimeout)) {
+                // First punch
+                this.isAttacking = true;
+                this.comboCount = 1;
+                this.player.anims.play('punch1');
+                this.lastAttackTime = currentTime;
+            } else if (this.isAttacking && this.comboCount === 1) {
+                // Second punch (combo)
+                this.comboCount = 2;
+                this.player.anims.play('punch2');
+                this.lastAttackTime = currentTime;
+            } else if (this.isAttacking && this.comboCount === 2) {
+                // Continue combo alternating
+                this.player.anims.play('punchCombo');
+                this.lastAttackTime = currentTime;
+            }
+        }
+
+        // Reset attack after timeout
+        if (this.isAttacking && (currentTime - this.lastAttackTime > this.comboTimeout)) {
+            this.isAttacking = false;
+            this.comboCount = 0;
+        }
+
+        // Jump
+        const touchingGround = this.player.body.touching.down || this.player.body.blocked.down;
+        if (touchingGround) {
+            this.isJumping = false;
+        }
+        
+        const jumpPressed = Phaser.Input.Keyboard.JustDown(this.jumpKey) || Phaser.Input.Keyboard.JustDown(this.wKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
+        if (jumpPressed && !this.isJumping && touchingGround) {
+            this.player.setVelocityY(-400);
+            this.isJumping = true;
         }
 
         // Animations
-        if (moving) {
-            this.player.anims.play('walk', true);
-        } else {
-            this.player.anims.play('idle', true);
+        if (!touchingGround) {
+            this.player.anims.play('jump', true);
+        } else if (!this.isAttacking) {
+            if (moving) {
+                this.player.anims.play('walk', true);
+            } else {
+                this.player.anims.play('idle', true);
+            }
         }
 
-        // Attack
-        if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
-            this.attack();
-        }
+        // Attack (right-click or custom attack key if needed)
+        // Attacks are triggered by overlap with enemies
 
         // Move enemies
         this.enemies.children.entries.forEach(enemy => {
@@ -137,11 +218,10 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnEnemy() {
-        const enemy = this.enemies.create(800, 500, 'enemy');
-        if (!this.textures.exists('enemy')) {
-            enemy.setDisplaySize(50, 80);
-            enemy.setTint(0xFF0000); // Red placeholder
-        }
+        const enemy = this.physics.add.sprite(800, 418, null);
+        enemy.setDisplaySize(50, 80);
+        enemy.setTint(0xFF0000); // Red placeholder
+        this.enemies.add(enemy);
         enemy.body.setGravityY(300);
         this.physics.add.collider(enemy, this.ground);
     }
