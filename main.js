@@ -20,7 +20,8 @@
 
         setupPlayerBody(player) {
             player.body.setGravityY(600);
-            player.body.setSize(32, 40);
+            // Taller body so collisions also cover lower legs/feet.
+            player.body.setSize(32, 52);
             player.body.setOffset(16, 8);
             player.setCollideWorldBounds(true);
         },
