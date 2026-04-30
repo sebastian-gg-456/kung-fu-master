@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kung Fu Master - Phaser 3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         html, body {
@@ -21,12 +24,11 @@
             gap: 0;
         }
         #ui-bar {
-            width: calc(100vw - 4px);
-            max-width: 1920px;
+            width: min(2200px, calc(100vw - 12px));
             min-height: 140px;
             background: #000;
             color: #fff;
-            font-family: 'Courier New', monospace;
+            font-family: 'Press Start 2P', monospace;
             font-size: 24px;
             font-weight: bold;
             display: flex;
@@ -45,13 +47,36 @@
             color: #00ff00;
             font-size: 28px;
         }
+        #hp-bar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+        #hp-bar-wrap label {
+            font-size: 16px;
+            color: #ffdd00;
+        }
+        #hp-track {
+            width: 220px;
+            height: 22px;
+            background: #333;
+            border: 2px solid #888;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        #hp-fill {
+            height: 100%;
+            width: 100%;
+            background: #00cc00;
+            transition: width 0.1s, background 0.1s;
+        }
         #ui-bar-bottom {
-            width: calc(100vw - 4px);
-            max-width: 1920px;
+            width: min(2200px, calc(100vw - 12px));
             min-height: 60px;
             background: #000;
             color: #fff;
-            font-family: 'Courier New', monospace;
+            font-family: 'Press Start 2P', monospace;
             font-size: 24px;
             font-weight: bold;
             display: flex;
@@ -71,15 +96,17 @@
             font-size: 28px;
         }
         #game-container {
-            width: calc(100vw - 4px);
-            height: 550px;
-            max-width: 1920px;
+            width: min(2200px, calc(100vw - 12px));
+            height: min(560px, calc(100vh - 214px));
+            min-height: 280px;
             box-sizing: border-box;
         }
         #game-container canvas {
             width: 100% !important;
             height: 100% !important;
             display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
     </style>
 </head>
@@ -88,6 +115,10 @@
         <div class="ui-group">
             <div>Vidas: <span id="lives-value">3</span></div>
             <div>Puntuación: <span id="score-value">0</span></div>
+        </div>
+        <div id="hp-bar-wrap">
+            <label>HP</label>
+            <div id="hp-track"><div id="hp-fill"></div></div>
         </div>
         <div class="ui-group">
             <div>Nivel: <span id="level-value">1</span></div>
@@ -104,5 +135,6 @@
         </div>
     </div>
     <script src="main.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
