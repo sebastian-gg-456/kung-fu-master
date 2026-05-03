@@ -120,6 +120,7 @@ class BootScene extends Phaser.Scene {
         this.load.image("hazard_dragon", "sprites/enemigos/Dragon.png");
         this.load.spritesheet("hazard_flame", "sprites/enemigos/llamarada.png", { frameWidth: 64, frameHeight: 64 });
         this.load.image("enemy_kumoko", "sprites/enemigos/kumoko.png");
+        this.load.image("akane", "sprites/akane.png");
         this.load.audio("sfx_strongpunch", "sprites/sonido/strongpunch.mp3");
         this.load.audio("sfx_black_flash", "sprites/sonido/black-flash-gojos.mp3");
 
@@ -333,6 +334,7 @@ class GameScene extends Phaser.Scene {
         this.fourKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR);
         this.fiveKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE);
         this.sixKey  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX);
+        this.eightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.EIGHT);
         this.nineKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NINE);
         this.adminHazardCycle = 0; // 0=spider, 1=scroll
 
@@ -356,6 +358,7 @@ class GameScene extends Phaser.Scene {
         this.blackFlashCueToken = 0;
         this.blackFlashCueSound = null;
         this.forceBlackFlashOnNextHit = false;
+        this.inEndingCutscene = false;
         this.spawnEnabled = true;
         this.levelClearCuePlayed = false;
         this.levelClearBonusApplied = false;
@@ -1542,10 +1545,134 @@ class GameScene extends Phaser.Scene {
         return { bonusLives, bonusHP, bonusTime, bonusTotal, timeLeftSeconds };
     }
 
+    setAkaneFrame(akaneImage, frameIndex) {
+        const src = this.textures.get("akane").getSourceImage();
+        const frameW = Math.floor(src.width / 2);
+        const frameH = src.height;
+        // akane.png stores the desired first frame in the right half.
+        const fx = (1 - Phaser.Math.Clamp(frameIndex, 0, 1)) * frameW;
+        akaneImage.setCrop(fx, 0, frameW, frameH);
+        return { frameW, frameH };
+    }
+
+    drawPixelHeart(cx, cy, size = 5, color = 0xff3d6e) {
+        const pattern = [
+            "01100110",
+            "11111111",
+            "11111111",
+            "01111110",
+            "00111100",
+            "00011000",
+            "00000000"
+        ];
+        const g = this.add.graphics();
+        g.fillStyle(color, 1);
+        pattern.forEach((row, yy) => {
+            for (let xx = 0; xx < row.length; xx++) {
+                if (row[xx] === "1") g.fillRect(cx + (xx * size), cy + (yy * size), size, size);
+            }
+        });
+        return g;
+    }
+
+    playLevel2RescueEnding() {
+        if (this.inEndingCutscene) return;
+        this.inEndingCutscene = true;
+        this.stairDone = true;
+        this.isClimbing = true;
+        this.spawnEnabled = false;
+        this.clearWaveTimers();
+        this.clearLevel2Hazards();
+        this.waveInProgress = false;
+
+        this.enemies.children.each(e => {
+            if (!e.active) return;
+            if (e.etype === "boss2") return;
+            e.destroy();
+        });
+
+        this.player.setVelocity(0, 0);
+        this.player.body.setAllowGravity(false);
+        this.player.setFlipX(true);
+        this.facingRight = true;
+        this.player.anims.play("p_walk", true);
+
+        const akaneX = this.playerMaxX - 44;
+        const akane = this.add.image(akaneX, this.standLineY + 2, "akane");
+        const akaneFrame = this.setAkaneFrame(akane, 0);
+        akane.setOrigin(0.5, 1);
+        const targetAkaneHeight = 148;
+        const akaneScale = targetAkaneHeight / akaneFrame.frameH;
+        akane.setScale(akaneScale);
+        akane.setFlipX(true);
+        akane.setDepth(10);
+
+        const targetX = akane.x - 46;
+        this.tweens.add({
+            targets: this.player,
+            x: targetX,
+            duration: 3600,
+            ease: "Linear",
+            onComplete: () => {
+                this.player.anims.stop();
+                this.player.setTexture("player_walk", 0);
+
+                // First beat: hold them close for a long pause.
+                this.time.delayedCall(1800, () => {
+                    this.setAkaneFrame(akane, 1);
+
+                    // Second beat: hold again so the reaction is clear before the heart appears.
+                    this.time.delayedCall(1700, () => {
+                    const heartSize = 5;
+                    const midX = (this.player.x + akane.x) / 2;
+                    const midY = ((this.player.y - 42) + (akane.y - 42)) / 2;
+                    const heartX = Math.floor(midX - (4 * heartSize));
+                    const heartY = Math.floor(midY - (3 * heartSize));
+                    const heart = this.drawPixelHeart(heartX, heartY, heartSize, 0xff4f7b);
+                    heart.setDepth(11);
+                    heart.setAlpha(0);
+                    heart.setScale(0.65);
+
+                    this.tweens.add({
+                        targets: heart,
+                        alpha: 1,
+                        scaleX: 1,
+                        scaleY: 1,
+                        duration: 900,
+                        ease: "Sine.Out"
+                    });
+                    this.tweens.add({
+                        targets: heart,
+                        y: heart.y - 8,
+                        duration: 1200,
+                        ease: "Sine.InOut",
+                        yoyo: true,
+                        repeat: 3
+                    });
+                    this.tweens.add({
+                        targets: heart,
+                        scaleX: 1.1,
+                        scaleY: 1.1,
+                        duration: 700,
+                        ease: "Sine.InOut",
+                        yoyo: true,
+                        repeat: 5
+                    });
+
+                    // Keep the final beat longer before showing game-complete screen.
+                    this.time.delayedCall(4500, () => {
+                        this.scene.start("WinScene", { score: this.score });
+                    });
+                    });
+                });
+            }
+        });
+    }
+
     reachStairs() {
         if (this.stairDone || this.isClimbing) return;
         if (this.currentLevel === 1 && !this.level1BossDefeated) return;
-        if (this.currentLevel === 2 && !this.level2BossDefeated) return;
+        if (this.currentLevel === 2) return;
         this.stairDone = true;
         this.isClimbing = true;
         this.cueLevelClearMusic();
@@ -1770,33 +1897,10 @@ class GameScene extends Phaser.Scene {
             this.clearWaveTimers();
             this.waveInProgress = false;
             this.cueLevelClearMusic();
-            // Trigger stair / win sequence after short delay
+            // Trigger rescue sequence directly in level 2 after short delay.
             this.time.delayedCall(1200, () => {
-                this.stairDone = true;
-                this.isClimbing = true;
-                this.player.setVelocityX(0);
-                this.player.body.setAllowGravity(false);
-                const bonus = this.applyLevelClearBonus();
-                this.tweens.add({
-                    targets: this.player,
-                    x: this.stairX,
-                    duration: 900,
-                    ease: "Linear",
-                    onComplete: () => {
-                        this.time.delayedCall(300, () => {
-                            this.scene.start("LevelClearScene", {
-                                level: this.currentLevel,
-                                score: this.score,
-                                lives: this.lives,
-                                bonusLives: bonus.bonusLives,
-                                bonusHP: bonus.bonusHP,
-                                bonusTime: bonus.bonusTime,
-                                bonusTotal: bonus.bonusTotal,
-                                timeLeftSeconds: bonus.timeLeftSeconds
-                            });
-                        });
-                    }
-                });
+                this.applyLevelClearBonus();
+                this.playLevel2RescueEnding();
             });
         } else if (enemy.etype === "dwarf") {
             enemy.anims.stop();
@@ -1813,7 +1917,7 @@ class GameScene extends Phaser.Scene {
     }
 
     update(time) {
-        if (this.isClimbing) return;
+        if (this.isClimbing || this.inEndingCutscene) return;
 
         // Parallax night sky for level 2
         if (this.currentLevel === 2 && this.level2SkyTile) {
@@ -1884,6 +1988,20 @@ class GameScene extends Phaser.Scene {
                 this.spawnBoss(bossX);
                 this.level1BossSpawned = true;
                 this.spawnEnabled = false;
+            }
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.eightKey)) {
+            if (this.currentLevel === 2 && !this.inEndingCutscene) {
+                this.enemies.children.each(e => { if (e.active) e.destroy(); });
+                this.clearWaveTimers();
+                this.clearLevel2Hazards();
+                this.waveInProgress = false;
+                this.level2BossDefeated = true;
+                this.spawnEnabled = false;
+                this.cueLevelClearMusic();
+                this.applyLevelClearBonus();
+                this.playLevel2RescueEnding();
+                return;
             }
         }
         if (Phaser.Input.Keyboard.JustDown(this.nineKey)) {
@@ -2401,21 +2519,17 @@ class WinScene extends Phaser.Scene {
         MusicDirector.play("winLoop");
         const W = this.scale.width, H = this.scale.height;
         this.add.rectangle(W / 2, H / 2, W, H, 0x00110b);
-        this.add.text(W / 2, H * 0.28, "HAS GANADO", {
-            fontSize: "64px", fill: "#66ff99", fontFamily: PIXEL_FONT,
+        this.add.text(W / 2, H * 0.28, "JUEGO COMPLETADO", {
+            fontSize: "62px", fill: "#66ff99", fontFamily: PIXEL_FONT,
             stroke: "#006633", strokeThickness: 6
         }).setOrigin(0.5);
 
-        this.add.text(W / 2, H * 0.46, "AKANE ESTA A SALVO", {
+        this.add.text(W / 2, H * 0.46, "AKANE FUE RESCATADA", {
             fontSize: "24px", fill: "#ffffff", fontFamily: PIXEL_FONT
         }).setOrigin(0.5);
 
         this.add.text(W / 2, H * 0.58, "Puntuacion: " + this.score, {
             fontSize: "28px", fill: "#ffdd00", fontFamily: PIXEL_FONT
-        }).setOrigin(0.5);
-
-        this.add.text(W / 2, H * 0.66, "RESULTADO FINAL DE LA PARTIDA", {
-            fontSize: "14px", fill: "#ccffdd", fontFamily: PIXEL_FONT
         }).setOrigin(0.5);
 
         const hint = this.add.text(W / 2, H * 0.74, "Pulsa ENTER para volver al menu", {
